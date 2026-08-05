@@ -1,0 +1,60 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [geoenthalpy-playground]
+  workflow_dispatch:
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: 3.12
+          miniforge-variant: Miniforge3
+          miniforge-version: latest
+          auto-update-conda: true
+
+      - name: install and check pandoc
+        run: |
+          conda install pandoc -c conda-forge
+          pandoc --version
+
+      - name: Install dependencies
+        run: pip install nox
+
+      - name: Build documentation
+        run: nox -s docs-build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/html
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
